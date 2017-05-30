@@ -11,6 +11,7 @@ using namespace std;
 const int SQUARE_LENGTH = 20;
 const int SCREEN_WIDTH = SQUARE_LENGTH * 25;
 const int SCREEN_HEIGHT = SQUARE_LENGTH * 25;
+const int SQUARE_PADDING = 2;
 
 SDL_Window* gWindow = NULL;
 SDL_Renderer* gRenderer = NULL;
@@ -21,6 +22,9 @@ int snake_y = 0;
 int fruit_x;
 int fruit_y;
 int snake_body_length = 1;
+
+bool change_background_color = true;
+int rand_back_r, rand_back_g, rand_back_b;
 
 enum Direction {LEFT, RIGHT, UP, DOWN};
 Direction direction = RIGHT;
@@ -91,14 +95,51 @@ void generate_fruit()
 	int slots_x = SCREEN_WIDTH / SQUARE_LENGTH;
 	int slots_y = SCREEN_HEIGHT / SQUARE_LENGTH;
 
-	fruit_x = (rand() % slots_x) * SQUARE_LENGTH;
-	fruit_y = (rand() % slots_y) * SQUARE_LENGTH;
+	bool checked_overlap = false;
+	while (!checked_overlap)
+	{
+		fruit_x = (rand() % slots_x) * SQUARE_LENGTH;
+		fruit_y = (rand() % slots_y) * SQUARE_LENGTH;
+
+		bool collision_found = false;
+		for (int i = 0; i < snake_body.size(); ++i)
+		{
+			if (fruit_x == snake_body[i].x && fruit_y == snake_body[i].y) 
+			{
+				collision_found = true;
+			}
+		}
+		if (!collision_found)
+		{
+			checked_overlap = true;
+		}
+	}
+}
+
+void generate_new_background()
+{
+	rand_back_r = rand() % 255 + 1;
+	rand_back_g = rand() % 255 + 1;
+	rand_back_b = rand() % 255 + 1;
+}
+
+void check_self_collisions() {
+	if (snake_body.size() > 1) {
+		for (int i = 0; i < snake_body.size() - 1; i++)
+		{
+			cout << "x: " << snake_body[i].x << " y: " << snake_body[i].y << endl;
+			if (snake_x == snake_body[i].x && snake_y == snake_body[i].y)
+			{
+				quit = true;
+			}
+		}
+	}
 }
 
 void draw() {
 
 	// draw fruit
-	SDL_Rect fruit_rect = { fruit_x, fruit_y, SQUARE_LENGTH, SQUARE_LENGTH };
+	SDL_Rect fruit_rect = { fruit_x, fruit_y, SQUARE_LENGTH - SQUARE_PADDING, SQUARE_LENGTH - SQUARE_PADDING };
 	SDL_SetRenderDrawColor(gRenderer, 0, 0, 255, 255);
 	SDL_RenderFillRect(gRenderer, &fruit_rect);
 
@@ -127,7 +168,7 @@ void draw() {
 
 	for (int i = 0, size = snake_body.size(); i < size; ++i)
 	{
-		SDL_Rect fillRect = {snake_body[i].x, snake_body[i].y, SQUARE_LENGTH, SQUARE_LENGTH };
+		SDL_Rect fillRect = {snake_body[i].x, snake_body[i].y, SQUARE_LENGTH - SQUARE_PADDING, SQUARE_LENGTH - SQUARE_PADDING };
 		SDL_SetRenderDrawColor(gRenderer, 0xFF, 0x00, 0x00, 0xFF);
 		SDL_RenderFillRect(gRenderer, &fillRect);
 	}
@@ -137,52 +178,38 @@ void draw() {
 		snake_body.erase(snake_body.begin());
 	}
 
+	// checking self-collisions
+	check_self_collisions();
+
+	// eat some fruit
 	if (snake_x == fruit_x && snake_y == fruit_y) {
 		snake_body_length++;
 		generate_fruit();
+		change_background_color = true;
+	}
+	else {
+		change_background_color = false;
 	}
 
 	check_if_left_window();
 }
 
 void process_user_input(string key) {
-	if (key.compare("Up") == 0) 
+	if (key.compare("Up") == 0 && direction != DOWN) 
 	{
 		direction = UP;
 	}
-	else if (key.compare("Down") == 0)
+	else if (key.compare("Down") == 0 && direction != UP)
 	{
 		direction = DOWN;
 	}
-	else if (key.compare("Left") == 0)
+	else if (key.compare("Left") == 0 && direction != RIGHT)
 	{
 		direction = LEFT;
 	}
-	else if (key.compare("Right") == 0)
+	else if (key.compare("Right") == 0 && direction != LEFT)
 	{
 		direction = RIGHT;
-	}
-}
-
-void test_how_vectors_work() 
-{
-	struct Pos pos1;
-	pos1.x = 2;
-	pos1.y = 3;
-
-	snake_body.push_back(pos1);
-
-	struct Pos pos2;
-	pos2.x = 4;
-	pos2.y = 5;
-
-	snake_body.push_back(pos2);
-
-	snake_body.erase(snake_body.begin());
-
-	for (int i = 0, size = snake_body.size(); i < size; ++i)
-	{
-		cout << snake_body[i].x << " " << snake_body[i].y << endl;
 	}
 }
 
@@ -211,8 +238,13 @@ int main( int argc, char* args[] )
 				}
 			}
 
+			if (change_background_color) 
+			{
+				generate_new_background();
+			}
+			SDL_SetRenderDrawColor(gRenderer, rand_back_r, rand_back_g, rand_back_b, 255);
+
 			//Clear screen
-			SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
 			SDL_RenderClear(gRenderer);
 			
 			process_user_input(user_input);
@@ -222,7 +254,14 @@ int main( int argc, char* args[] )
 			//Update screen
 			SDL_RenderPresent(gRenderer);
 
-			SDL_Delay(150);
+			if (quit)
+			{
+				SDL_Delay(2000);
+			} 
+			else
+			{
+				SDL_Delay(90);
+			}
 		}
 	}
 
